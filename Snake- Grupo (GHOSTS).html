@@ -1,0 +1,2433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake: Estructuras Discretas</title>
+
+  <style>
+    /* ================================================================
+       ESTILOS GENERALES
+       Todo el diseño está dentro de este único archivo HTML.
+       No se usan librerías externas ni conexión a internet.
+       ================================================================ */
+
+    :root {
+      --fondo: #070b18;
+      --panel: rgba(16, 24, 48, 0.9);
+      --panel-claro: rgba(27, 39, 73, 0.85);
+      --borde: rgba(113, 251, 255, 0.25);
+      --neon: #64f6ff;
+      --verde: #6eff8f;
+      --amarillo: #ffd166;
+      --rojo: #ff5576;
+      --morado: #c38cff;
+      --texto: #f5f8ff;
+      --texto-suave: #aab6d4;
+      --sombra: 0 0 25px rgba(100, 246, 255, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--texto);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(53, 88, 194, 0.2), transparent 32%),
+        radial-gradient(circle at 85% 10%, rgba(86, 255, 175, 0.12), transparent 30%),
+        linear-gradient(145deg, #050713 0%, #0b1022 48%, #07101a 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.3;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: linear-gradient(to bottom, black, transparent 95%);
+    }
+
+    .app {
+      width: min(1500px, 96vw);
+      margin: 0 auto;
+      padding: 22px 0 30px;
+    }
+
+    .cabecera {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .marca h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 3vw, 2.6rem);
+      letter-spacing: 0.03em;
+      text-shadow: 0 0 18px rgba(100, 246, 255, 0.32);
+    }
+
+    .marca p {
+      margin: 6px 0 0;
+      color: var(--texto-suave);
+      font-size: 0.97rem;
+    }
+
+    .insignia {
+      padding: 9px 13px;
+      border: 1px solid var(--borde);
+      border-radius: 999px;
+      color: var(--neon);
+      background: rgba(100, 246, 255, 0.07);
+      box-shadow: var(--sombra);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(620px, 1.55fr) minmax(360px, 0.92fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--borde);
+      border-radius: 22px;
+      background: linear-gradient(180deg, var(--panel), rgba(8, 13, 29, 0.92));
+      box-shadow: var(--sombra);
+      backdrop-filter: blur(12px);
+    }
+
+    .juego-panel {
+      padding: 16px;
+    }
+
+    .estadisticas {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+
+    .dato {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 9px 10px;
+      background: rgba(255,255,255,0.04);
+      min-width: 0;
+    }
+
+    .dato span {
+      display: block;
+      color: var(--texto-suave);
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .dato strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 1.08rem;
+      color: var(--neon);
+      overflow-wrap: anywhere;
+    }
+
+    .dato small { display:block; margin-top:3px; color:var(--texto-suave); font-size:.64rem; line-height:1.25; }
+
+    .tablero-marco {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid rgba(100, 246, 255, 0.28);
+      background: #050a13;
+      box-shadow:
+        inset 0 0 35px rgba(0,0,0,0.55),
+        0 0 24px rgba(100, 246, 255, 0.12);
+    }
+
+    canvas {
+      touch-action: none;
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(3, 6, 15, 0.74);
+      backdrop-filter: blur(7px);
+      transition: opacity 0.2s ease;
+    }
+
+    .overlay.oculto {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .overlay-contenido {
+      width: min(560px, 95%);
+      text-align: center;
+      padding: 24px;
+      border: 1px solid rgba(100, 246, 255, 0.26);
+      border-radius: 20px;
+      background: rgba(10, 16, 34, 0.93);
+      box-shadow: 0 0 38px rgba(100, 246, 255, 0.16);
+    }
+
+    .overlay-contenido h2 {
+      margin: 0 0 10px;
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+    }
+
+    .overlay-contenido p {
+      margin: 0 0 18px;
+      color: var(--texto-suave);
+      line-height: 1.55;
+    }
+
+    .controles,
+    .mejoras {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .mejoras {
+      margin-top: 10px;
+      padding-top: 11px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 17px;
+      color: #041014;
+      background: linear-gradient(135deg, var(--neon), #8bffcc);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 18px rgba(100, 246, 255, 0.22);
+      transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.08);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secundario {
+      color: var(--texto);
+      background: rgba(255,255,255,0.09);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: none;
+    }
+
+    button.mejora-activa {
+      color: #06100a;
+      background: linear-gradient(135deg, var(--amarillo), var(--verde));
+      border-color: transparent;
+      box-shadow: 0 0 20px rgba(255, 209, 102, 0.22);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .estado-mejoras {
+      margin: 9px 0 0;
+      color: var(--texto-suave);
+      text-align: center;
+      font-size: 0.83rem;
+      line-height: 1.45;
+    }
+
+    .tabla-frutas { margin-top:12px; overflow:hidden; border:1px solid rgba(255,209,102,.22); border-radius:15px; background:rgba(255,255,255,.035); }
+    .tabla-frutas-cabecera { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; background:rgba(255,209,102,.07); border-bottom:1px solid rgba(255,255,255,.08); }
+    .tabla-frutas-cabecera>div:first-child { display:grid; gap:3px; }
+    .tabla-frutas-cabecera strong { color:var(--amarillo); }
+    .tabla-frutas-cabecera span { color:var(--texto-suave); font-size:.77rem; }
+    .fruta-actual { padding:7px 10px; border-radius:999px; color:var(--texto); background:rgba(255,255,255,.08); font-size:.78rem; font-weight:800; white-space:nowrap; }
+    .tabla-frutas-scroll { overflow-x:auto; }
+    .tabla-frutas table { width:100%; border-collapse:collapse; min-width:620px; font-size:.82rem; }
+    .tabla-frutas th,.tabla-frutas td { padding:10px 12px; text-align:left; border-bottom:1px solid rgba(255,255,255,.07); }
+    .tabla-frutas th { color:var(--neon); background:rgba(0,0,0,.14); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+    .tabla-frutas tbody tr:last-child td { border-bottom:0; }
+    .muestra-fruta { display:inline-block; width:12px; height:12px; margin-right:8px; border-radius:50%; vertical-align:-1px; box-shadow:0 0 10px currentColor; }
+    .muestra-fruta.normal { background:var(--rojo); color:var(--rojo); }
+    .muestra-fruta.dorada { background:var(--amarillo); color:var(--amarillo); }
+    .muestra-fruta.hielo { background:var(--neon); color:var(--neon); }
+
+    .ayuda-teclas {
+      margin: 12px 0 0;
+      text-align: center;
+      color: var(--texto-suave);
+      font-size: 0.9rem;
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 28px;
+      margin: 0 2px;
+      padding: 4px 7px;
+      border-radius: 7px;
+      color: var(--texto);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.16);
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.25);
+    }
+
+    .movil {
+      display: none;
+      grid-template-columns: repeat(3, 52px);
+      grid-template-rows: repeat(2, 46px);
+      justify-content: center;
+      gap: 7px;
+      margin-top: 14px;
+    }
+
+    .movil button {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: 0;
+      font-size: 1.2rem;
+    }
+
+    .movil .arriba { grid-column: 2; }
+    .movil .izquierda { grid-column: 1; grid-row: 2; }
+    .movil .abajo { grid-column: 2; grid-row: 2; }
+    .movil .derecha { grid-column: 3; grid-row: 2; }
+
+    .lateral {
+      display: grid;
+      gap: 16px;
+    }
+
+    .seccion {
+      padding: 16px;
+    }
+
+    .seccion h3 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+      color: var(--neon);
+    }
+
+    .formula {
+      min-height: 86px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      background: rgba(0,0,0,0.2);
+      color: var(--texto-suave);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .formula strong {
+      color: var(--amarillo);
+    }
+
+    .concepto-activo {
+      padding: 14px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(100, 246, 255, 0.08), rgba(110, 255, 143, 0.06));
+      border: 1px solid rgba(100, 246, 255, 0.18);
+    }
+
+    .concepto-activo > strong {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--verde);
+      font-size: 1.02rem;
+    }
+
+    .concepto-activo > p {
+      margin: 0;
+      color: var(--texto-suave);
+      line-height: 1.48;
+    }
+
+    .bloque-pregunta,
+    .bloque-respuesta,
+    .buscar-codigo {
+      margin-top: 11px;
+      padding: 10px 11px;
+      border-radius: 11px;
+      line-height: 1.45;
+      font-size: 0.84rem;
+    }
+
+    .bloque-pregunta {
+      color: var(--texto-suave);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .bloque-pregunta b,
+    .bloque-respuesta b,
+    .buscar-codigo b {
+      color: var(--amarillo);
+    }
+
+    .bloque-respuesta {
+      color: #d9ffe3;
+      background: rgba(110,255,143,0.075);
+      border: 1px solid rgba(110,255,143,0.16);
+      white-space: pre-line;
+    }
+
+    .buscar-codigo {
+      color: var(--texto-suave);
+      background: rgba(195,140,255,0.075);
+      border: 1px solid rgba(195,140,255,0.2);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .demo-controles {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 11px;
+    }
+
+    .demo-controles button {
+      padding: 8px 11px;
+      font-size: 0.78rem;
+    }
+
+    body.modal-abierto { overflow: hidden; }
+    .codigo-backdrop { position:fixed; inset:0; z-index:999; background:rgba(1,4,12,.82); backdrop-filter:blur(8px); }
+    .codigo-panel {
+      position:fixed; left:50%; top:50%; z-index:1000; width:min(1100px,92vw); height:min(760px,84vh);
+      transform:translate(-50%,-50%); display:grid; grid-template-rows:auto minmax(0,1fr); overflow:hidden;
+      border:1px solid rgba(100,246,255,.34); border-radius:20px; background:#060914;
+      box-shadow:0 28px 90px rgba(0,0,0,.68),0 0 34px rgba(100,246,255,.18);
+    }
+    .codigo-cabecera { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:15px 18px; background:linear-gradient(135deg,rgba(100,246,255,.13),rgba(195,140,255,.09)); border-bottom:1px solid rgba(100,246,255,.17); }
+    .codigo-cabecera>div { display:grid; gap:3px; }
+    .codigo-cabecera strong { color:var(--texto); font-size:1rem; }
+    .codigo-cabecera span { color:var(--neon); font-size:.84rem; font-weight:800; }
+    .cerrar-codigo { padding:8px 12px; color:var(--texto); background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.14); box-shadow:none; white-space:nowrap; }
+    .codigo-panel pre { margin:0; min-height:0; overflow:auto; padding:24px; color:#e4ecff; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:clamp(.86rem,1.3vw,1rem); line-height:1.68; white-space:pre; tab-size:2; }
+
+    .lista-conceptos {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 9px 8px;
+      border-radius: 11px;
+      background: rgba(255,255,255,0.045);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--texto-suave);
+      font-size: 0.77rem;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .chip:hover {
+      transform: translateY(-2px);
+      color: var(--texto);
+      background: rgba(100, 246, 255, 0.09);
+      border-color: rgba(100, 246, 255, 0.3);
+    }
+
+    .chip:focus-visible {
+      outline: 2px solid var(--amarillo);
+      outline-offset: 2px;
+    }
+
+    .chip.activo {
+      color: #05130b;
+      background: var(--verde);
+      border-color: var(--verde);
+      font-weight: 900;
+      box-shadow: 0 0 18px rgba(110, 255, 143, 0.28);
+    }
+
+    .demo-ayuda {
+      margin: 10px 0 0;
+      color: var(--texto-suave);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    .oculto-total {
+      display: none !important;
+    }
+
+    .leyenda {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      margin-top: 12px;
+      color: var(--texto-suave);
+      font-size: 0.83rem;
+    }
+
+    .leyenda span::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      border-radius: 3px;
+      vertical-align: -1px;
+    }
+
+    .leyenda .serpiente::before { background: var(--verde); }
+    .leyenda .normal::before { background: var(--rojo); border-radius: 50%; }
+    .leyenda .dorada::before { background: var(--amarillo); border-radius: 50%; }
+    .leyenda .hielo::before { background: var(--neon); border-radius: 50%; }
+    .leyenda .obstaculo::before { background: #9aa4bc; }
+
+    .pie {
+      margin-top: 18px;
+      text-align: center;
+      color: #8390ad;
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 1080px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .lateral {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .lateral .panel:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app { width: min(96vw, 680px); }
+      .cabecera { align-items: flex-start; }
+      .insignia { display: none; }
+      .estadisticas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .lateral { grid-template-columns: 1fr; }
+      .lateral .panel:last-child { grid-column: auto; }
+      .movil { display: grid; }
+      .ayuda-teclas { display: none; }
+      .juego-panel { padding: 10px; }
+      .lista-conceptos { grid-template-columns: 1fr; }
+      .tabla-frutas-cabecera { align-items:flex-start; flex-direction:column; }
+      .codigo-panel { width:96vw; height:88vh; }
+      .codigo-panel pre { padding:16px; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header class="cabecera">
+      <div class="marca">
+        <h1>Snake: Estructuras Discretas</h1>
+        <p>Videojuego educativo con los 12 conceptos del banco de preguntas.</p>
+      </div>
+      <div class="insignia">ARCADE EDUCATIVO</div>
+    </header>
+
+    <section class="layout">
+      <article class="panel juego-panel">
+        <div class="estadisticas">
+          <div class="dato">
+            <span>Puntaje</span>
+            <strong id="puntaje">0</strong>
+          </div>
+          <div class="dato">
+            <span>Nivel</span>
+            <strong id="nivel">1</strong>
+          </div>
+          <div class="dato">
+            <span>Longitud</span>
+            <strong id="longitud">1</strong>
+          </div>
+          <div class="dato">
+            <span>Posición</span>
+            <strong id="posicion">(10, 7)</strong>
+          </div>
+          <div class="dato">
+            <span>Velocidad</span>
+            <strong id="velocidad">1.00×</strong>
+            <small id="intervaloVelocidad">190 ms por movimiento</small>
+          </div>
+        </div>
+
+        <div class="tablero-marco">
+          <canvas id="tablero" width="1000" height="750" aria-label="Tablero del juego Snake"></canvas>
+
+          <div id="overlay" class="overlay">
+            <div class="overlay-contenido">
+              <h2 id="overlayTitulo">Snake Discreto</h2>
+              <p id="overlayTexto">
+                Usa las flechas para moverte. Los dos botones de mejora están desactivados al inicio para que puedas demostrar cuándo se materializa cada mejora.
+              </p>
+              <button id="botonOverlay">Iniciar juego</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="controles">
+          <button id="iniciar">Iniciar juego</button>
+          <button id="pausar" class="secundario" disabled>Pausar</button>
+          <button id="reiniciar" class="secundario">Reiniciar</button>
+          <button id="sonido" class="secundario">Sonido: activado</button>
+        </div>
+
+        <div class="mejoras" aria-label="Mejoras opcionales">
+          <button id="mejoraVelocidad" class="secundario">Mejora 1: velocidad adaptativa — OFF</button>
+          <button id="mejoraFrutas" class="secundario">Mejora 2: frutas especiales — OFF</button>
+        </div>
+
+        <p id="estadoMejoras" class="estado-mejoras">
+          Modo normal: velocidad por nivel y una sola fruta de 10 puntos.
+        </p>
+
+        <section id="tablaFrutas" class="tabla-frutas oculto-total" aria-label="Valores de las frutas especiales">
+          <div class="tabla-frutas-cabecera">
+            <div>
+              <strong>Guía de frutas especiales</strong>
+              <span>La tabla aparece únicamente al activar la Mejora 2.</span>
+            </div>
+            <div id="frutaActual" class="fruta-actual">Fruta actual: Manzana</div>
+          </div>
+          <div class="tabla-frutas-scroll">
+            <table>
+              <thead><tr><th>Fruta</th><th>Puntos</th><th>Crecimiento</th><th>Efecto</th></tr></thead>
+              <tbody>
+                <tr><td><span class="muestra-fruta normal"></span>Manzana</td><td>10</td><td>+1 segmento</td><td>Sin efecto adicional</td></tr>
+                <tr><td><span class="muestra-fruta dorada"></span>Dorada</td><td>30</td><td>+2 segmentos</td><td>Mayor recompensa</td></tr>
+                <tr><td><span class="muestra-fruta hielo"></span>Hielo</td><td>15</td><td>+1 segmento</td><td>Ralentiza durante 10 pasos</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <p class="ayuda-teclas">
+          Movimiento: <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> · Pausa: <kbd>Espacio</kbd>
+        </p>
+
+        <div class="movil" aria-label="Controles táctiles">
+          <button class="arriba" data-dir="arriba">▲</button>
+          <button class="izquierda" data-dir="izquierda">◀</button>
+          <button class="abajo" data-dir="abajo">▼</button>
+          <button class="derecha" data-dir="derecha">▶</button>
+        </div>
+
+        <div class="leyenda">
+          <span class="serpiente">Serpiente</span>
+          <span class="normal">Manzana: 10 pts, +1</span>
+          <span id="leyendaDorada" class="dorada oculto-total">Dorada: 30 pts, +2</span>
+          <span id="leyendaHielo" class="hielo oculto-total">Hielo: 15 pts, ralentiza</span>
+          <span class="obstaculo">Obstáculo</span>
+        </div>
+      </article>
+
+      <aside class="lateral">
+        <section class="panel seccion">
+          <h3>Fórmula modular aplicada</h3>
+          <div id="formula" class="formula">
+            <span>Movimiento normal:</span>
+            <strong>nueva posición = (posición + movimiento) mod tamaño</strong>
+          </div>
+        </section>
+
+        <section class="panel seccion">
+          <h3>Concepto activo</h3>
+          <div class="concepto-activo">
+            <strong id="conceptoTitulo">Teoría de grafos</strong>
+            <p id="conceptoTexto">
+              Cada casilla es un vértice y cada movimiento permitido es una arista.
+            </p>
+
+            <div id="bloquePregunta" class="bloque-pregunta">
+              <b>Pregunta:</b> Si cada casilla es un vértice y unimos casillas vecinas, ¿qué grafo se forma?
+            </div>
+
+            <div id="bloqueRespuesta" class="bloque-respuesta">
+              <b>Respuesta:</b> Se forma un grafo de grilla. Una casilla interior tiene grado 4; en el modo toroidal todas las casillas tienen grado 4.
+            </div>
+
+            <div id="buscarCodigo" class="buscar-codigo">
+              <b>Ctrl + F:</b> CONCEPTO [Teoría de grafos]
+            </div>
+
+            <div class="demo-controles">
+              <button id="verCodigo" class="secundario">Ver código</button>
+              <button id="cerrarDemostracion" class="secundario oculto-total">Cerrar ejemplo y continuar</button>
+            </div>
+
+
+          </div>
+        </section>
+
+        <section class="panel seccion">
+          <h3>Banco de 12 conceptos</h3>
+          <div class="lista-conceptos" id="listaConceptos">
+            <div class="chip" role="button" tabindex="0" data-concepto="Aritmética modular">1. Aritmética modular</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Sucesiones">2. Sucesiones</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Series">3. Series</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Conjuntos">4. Conjuntos</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Lógica proposicional">5. Lógica proposicional</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Funciones por partes">6. Funciones por partes</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Conteo">7. Conteo</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Eficiencia / O">8. Eficiencia / O</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Relaciones">9. Relaciones</div>
+            <div class="chip activo" role="button" tabindex="0" data-concepto="Teoría de grafos">10. Teoría de grafos</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Sistemas de numeración">11. Sistemas de numeración</div>
+            <div class="chip" role="button" tabindex="0" data-concepto="Inducción matemática">12. Inducción matemática</div>
+          </div>
+          <p class="demo-ayuda">
+            Pulsa un concepto: el tablero mostrará un ejemplo, el panel responderá la pregunta y “Ver código” enseñará el fragmento correspondiente.
+          </p>
+        </section>
+      </aside>
+    </section>
+
+    <footer class="pie">
+      Archivo único HTML · Funciona sin internet · HTML + CSS + JavaScript embebidos.
+    </footer>
+  </main>
+
+  <div id="codigoBackdrop" class="codigo-backdrop oculto-total" aria-hidden="true"></div>
+  <section id="codigoPanel" class="codigo-panel oculto-total" role="dialog" aria-modal="true" aria-labelledby="codigoModalTitulo">
+    <div class="codigo-cabecera">
+      <div><strong id="codigoModalTitulo">Fragmento real del programa</strong><span id="codigoEtiqueta">Teoría de grafos</span></div>
+      <button id="cerrarCodigo" class="cerrar-codigo" type="button" aria-label="Cerrar código">✕ Cerrar</button>
+    </div>
+    <pre><code id="codigoConcepto"></code></pre>
+  </section>
+
+  <script>
+    "use strict";
+
+    /* ==================================================================
+       1. REFERENCIAS A LA INTERFAZ
+       Estas constantes guardan los elementos HTML que JavaScript cambiará.
+       Por ejemplo, puntajeElemento permite actualizar el número de puntos.
+       ================================================================== */
+
+    const canvas = document.getElementById("tablero");
+    const ctx = canvas.getContext("2d");
+
+    const puntajeElemento = document.getElementById("puntaje");
+    const nivelElemento = document.getElementById("nivel");
+    const longitudElemento = document.getElementById("longitud");
+    const posicionElemento = document.getElementById("posicion");
+    const velocidadElemento = document.getElementById("velocidad");
+    const intervaloVelocidadElemento = document.getElementById("intervaloVelocidad");
+
+    const formulaElemento = document.getElementById("formula");
+    const conceptoTitulo = document.getElementById("conceptoTitulo");
+    const conceptoTexto = document.getElementById("conceptoTexto");
+    const bloquePregunta = document.getElementById("bloquePregunta");
+    const bloqueRespuesta = document.getElementById("bloqueRespuesta");
+    const buscarCodigo = document.getElementById("buscarCodigo");
+    const listaConceptos = document.getElementById("listaConceptos");
+
+    const verCodigoBoton = document.getElementById("verCodigo");
+    const cerrarDemostracionBoton = document.getElementById("cerrarDemostracion");
+    const codigoPanel = document.getElementById("codigoPanel");
+    const codigoBackdrop = document.getElementById("codigoBackdrop");
+    const cerrarCodigoBoton = document.getElementById("cerrarCodigo");
+    const codigoConcepto = document.getElementById("codigoConcepto");
+    const codigoEtiqueta = document.getElementById("codigoEtiqueta");
+
+    const overlay = document.getElementById("overlay");
+    const overlayTitulo = document.getElementById("overlayTitulo");
+    const overlayTexto = document.getElementById("overlayTexto");
+    const botonOverlay = document.getElementById("botonOverlay");
+
+    const botonIniciar = document.getElementById("iniciar");
+    const botonPausar = document.getElementById("pausar");
+    const botonReiniciar = document.getElementById("reiniciar");
+    const botonSonido = document.getElementById("sonido");
+    const botonMejoraVelocidad = document.getElementById("mejoraVelocidad");
+    const botonMejoraFrutas = document.getElementById("mejoraFrutas");
+    const estadoMejoras = document.getElementById("estadoMejoras");
+    const leyendaDorada = document.getElementById("leyendaDorada");
+    const leyendaHielo = document.getElementById("leyendaHielo");
+    const tablaFrutas = document.getElementById("tablaFrutas");
+    const frutaActualElemento = document.getElementById("frutaActual");
+
+    /* ==================================================================
+       2. CONFIGURACIÓN DEL TABLERO
+       La grilla tiene 20 columnas para coincidir exactamente con la primera
+       pregunta del banco. Las coordenadas son enteros: x = 0...19.
+       ================================================================== */
+
+    const COLUMNAS = 20;
+    const FILAS = 15;
+    const ANCHO_CELDA = canvas.width / COLUMNAS;
+    const ALTO_CELDA = canvas.height / FILAS;
+
+    const PUNTOS_FRUTA_NORMAL = 10;
+    const FRUTAS_POR_NIVEL = 4;
+    const NIVEL_MAXIMO = 6;
+
+    // CONCEPTO [Teoría de grafos]:
+    // El tablero se representa como G = (V, E).
+    // V es el conjunto de casillas y E contiene los movimientos entre vecinas.
+
+    // CONCEPTO [Conteo]:
+    // Existen 4 direcciones codificadas, pero durante la partida solo se
+    // permiten 3 opciones nuevas porque la serpiente no puede retroceder.
+
+    const DIRECCIONES = Object.freeze({
+      arriba:    { x: 0,  y: -1, opuesta: "abajo" },
+      abajo:     { x: 0,  y: 1,  opuesta: "arriba" },
+      izquierda: { x: -1, y: 0,  opuesta: "derecha" },
+      derecha:   { x: 1,  y: 0,  opuesta: "izquierda" }
+    });
+
+    // CONCEPTO [Sistemas de numeración]:
+    // Cuatro estados requieren 2 bits porque 2² = 4.
+    // arriba=0=00, abajo=1=01, izquierda=2=10, derecha=3=11.
+    const CODIGOS_DIRECCION = Object.freeze({
+      arriba:    { decimal: 0, binario: "00" },
+      abajo:     { decimal: 1, binario: "01" },
+      izquierda: { decimal: 2, binario: "10" },
+      derecha:   { decimal: 3, binario: "11" }
+    });
+
+    // MEJORA 2 [Frutas especiales]:
+    // Cada fruta se modela con nombre, puntaje, crecimiento y color.
+    // La tabla visible usa estos mismos datos para demostrar el efecto.
+    const TIPOS_FRUTA = Object.freeze({
+      normal: {
+        nombre: "Manzana",
+        puntos: 10,
+        crecimiento: 1,
+        color: "#ff5576"
+      },
+      dorada: {
+        nombre: "Fruta dorada",
+        puntos: 30,
+        crecimiento: 2,
+        color: "#ffd166"
+      },
+      hielo: {
+        nombre: "Fruta de hielo",
+        puntos: 15,
+        crecimiento: 1,
+        color: "#64f6ff"
+      }
+    });
+
+    /* ==================================================================
+       3. ESTADO DEL JUEGO
+       Estas variables cambian durante la partida y describen el estado
+       discreto actual: posiciones, dirección, puntaje, nivel y mejoras.
+       ================================================================== */
+
+    let serpiente = [];
+    let conjuntoSerpiente = new Set();
+    let fruta = { x: 0, y: 0, tipo: "normal" };
+    let obstaculos = [];
+    let conjuntoObstaculos = new Set();
+
+    let direccionActual = "derecha";
+    let direccionPendiente = "derecha";
+    let puntaje = 0;
+    let nivel = 1;
+    let frutasComidas = 0;
+    let crecimientoPendiente = 0;
+    let pasosLentosRestantes = 0;
+
+    let enJuego = false;
+    let enPausa = false;
+    let terminado = false;
+    let sonidoActivo = true;
+    let temporizador = null;
+
+    let mejoraVelocidadActiva = false;
+    let mejoraFrutasActiva = false;
+
+    let conceptoDemostracion = null;
+    let juegoPausadoPorDemostracion = false;
+    let conceptoSeleccionado = "Teoría de grafos";
+    let bloqueoConceptoGameOver = false;
+
+    // Guarda una pantalla superpuesta para restaurarla después de cerrar
+    // una demostración abierta antes de iniciar o después de terminar.
+    let overlayGuardado = null;
+
+    // CONCEPTO [Conjuntos]:
+    // El cuerpo es S = {(x1,y1), (x2,y2), ..., (xn,yn)}.
+    // El Set representa ese conjunto de posiciones sin elementos repetidos.
+
+    // Convierte una posición en texto para guardarla dentro de un Set.
+    function clave(posicion) {
+      return `${posicion.x},${posicion.y}`;
+    }
+
+    // Reconstruye el conjunto S usando todas las posiciones del cuerpo.
+    function actualizarConjuntoSerpiente() {
+      conjuntoSerpiente = new Set(serpiente.map(clave));
+    }
+
+    /* ==================================================================
+       4. FUNCIONES DE VELOCIDAD
+       El modo normal aumenta la velocidad por nivel. La mejora opcional
+       añade una función por partes que también usa el puntaje.
+       ================================================================== */
+
+    // Esta función mantiene el requisito básico: cada nivel aumenta velocidad.
+    function velocidadPorNivel(nivelActual) {
+      const velocidadBase = 190;
+      const reduccionPorNivel = 15;
+      return Math.max(105, velocidadBase - (nivelActual - 1) * reduccionPorNivel);
+    }
+
+    // CONCEPTO [Funciones por partes]:
+    // T(p) = 175 si 0 ≤ p < 40
+    //        135 si 40 ≤ p < 80
+    //         95 si p ≥ 80
+    // Dominio: p ∈ N₀. Menos milisegundos significa más velocidad.
+    function velocidadPorPuntaje(p) {
+      if (p < 40) return 175;
+      if (p < 80) return 135;
+      return 95;
+    }
+
+    // Devuelve la velocidad que realmente usa el temporizador.
+    function obtenerVelocidadActual() {
+      const velocidadNormal = velocidadPorNivel(nivel);
+      const velocidadConMejora = mejoraVelocidadActiva ? Math.min(velocidadNormal, velocidadPorPuntaje(puntaje)) : velocidadNormal;
+      const penalidadHielo = pasosLentosRestantes > 0 ? 55 : 0;
+      return velocidadConMejora + penalidadHielo;
+    }
+
+    // Convierte el tiempo de espera en un marcador intuitivo: 190 ms = 1.00×.
+    // Si disminuye el intervalo, aumenta el multiplicador mostrado.
+    function obtenerMultiplicadorVelocidad() {
+      return 190 / obtenerVelocidadActual();
+    }
+
+    /* ==================================================================
+       5. ARITMÉTICA MODULAR Y MOVIMIENTO TOROIDAL
+       Si una coordenada sale del rango, el módulo la devuelve al tablero.
+       ================================================================== */
+
+    // CONCEPTO [Aritmética modular]:
+    // El operador módulo permite volver al lado contrario del tablero.
+    // La fórmula doble evita residuos negativos en JavaScript.
+    function moduloPositivo(valor, modulo) {
+      return ((valor % modulo) + modulo) % modulo;
+    }
+
+    // Calcula la próxima posición de la cabeza sin mover aún el cuerpo.
+    function calcularNuevaCabeza() {
+      const cabeza = serpiente[0];
+      const movimiento = DIRECCIONES[direccionActual];
+
+      const posicionSinModulo = {
+        x: cabeza.x + movimiento.x,
+        y: cabeza.y + movimiento.y
+      };
+
+      // CONCEPTO [Aritmética modular]:
+      // nuevaX = (xActual + movimientoX) mod COLUMNAS
+      // nuevaY = (yActual + movimientoY) mod FILAS
+      const nuevaCabeza = {
+        x: moduloPositivo(posicionSinModulo.x, COLUMNAS),
+        y: moduloPositivo(posicionSinModulo.y, FILAS)
+      };
+
+      const cruzoBorde =
+        posicionSinModulo.x < 0 || posicionSinModulo.x >= COLUMNAS ||
+        posicionSinModulo.y < 0 || posicionSinModulo.y >= FILAS;
+
+      if (cruzoBorde) {
+        mostrarFormulaModular(cabeza, movimiento, nuevaCabeza);
+        activarConcepto(
+          "Aritmética modular",
+          `Se cruzó un borde: la posición se corrigió con módulo y terminó en (${nuevaCabeza.x}, ${nuevaCabeza.y}).`
+        );
+        reproducirSonido("borde");
+      }
+
+      return nuevaCabeza;
+    }
+
+    // Muestra en la interfaz la operación modular realizada en ambos ejes.
+    function mostrarFormulaModular(anterior, movimiento, nueva) {
+      formulaElemento.innerHTML = `
+        <span>Eje X: (${anterior.x} + ${movimiento.x}) mod ${COLUMNAS} = <strong>${nueva.x}</strong></span>
+        <span>Eje Y: (${anterior.y} + ${movimiento.y}) mod ${FILAS} = <strong>${nueva.y}</strong></span>
+      `;
+    }
+
+    /* ==================================================================
+       6. FUNCIONES MATEMÁTICAS DEL BANCO DE PREGUNTAS
+       Estas funciones permiten que cada respuesta esté respaldada por código.
+       ================================================================== */
+
+    // CONCEPTO [Series]:
+    // En modo normal cada fruta vale 10. La serie es 10+10+...+10 = 10n.
+    function calcularPuntajeNormal(n) {
+      return PUNTOS_FRUTA_NORMAL * n;
+    }
+
+    // CONCEPTO [Lógica proposicional]:
+    // P = “la cabeza chocó con el cuerpo” y Q = “chocó con un obstáculo”.
+    // La disyunción P ∨ Q es verdadera cuando P, Q o ambas son verdaderas.
+    function evaluarGameOver(P, Q) {
+      return P || Q;
+    }
+
+    // CONCEPTO [Conteo]:
+    // Sin retroceder existen 3 opciones en cada paso; en k pasos hay 3^k.
+    function trayectoriasSinRetroceso(pasos) {
+      return 3 ** pasos;
+    }
+
+    // CONCEPTO [Relaciones]:
+    // a R b si ambas casillas están en la misma fila: a.y = b.y.
+    function mismaFila(a, b) {
+      return a.y === b.y;
+    }
+
+    // CONCEPTO [Teoría de grafos]:
+    // Devuelve los cuatro vértices vecinos de una casilla del grafo toroidal.
+    function vecinosToroidales(posicion) {
+      return Object.values(DIRECCIONES).map((movimiento) => ({
+        x: moduloPositivo(posicion.x + movimiento.x, COLUMNAS),
+        y: moduloPositivo(posicion.y + movimiento.y, FILAS)
+      }));
+    }
+
+    // CONCEPTO [Inducción matemática]:
+    // La fórmula 1+2+...+n = n(n+1)/2 se demuestra por inducción.
+    function sumaPrimerosNaturales(n) {
+      return n * (n + 1) / 2;
+    }
+
+    /* ==================================================================
+       7. PREPARACIÓN, INICIO, PAUSA Y REINICIO
+       Estas funciones administran el ciclo completo de una partida.
+       ================================================================== */
+
+    // Coloca una serpiente de longitud 1 para coincidir con la sucesión 1,2,3...
+    function prepararPartida() {
+      detenerTemporizador();
+
+      const centroX = Math.floor(COLUMNAS / 2);
+      const centroY = Math.floor(FILAS / 2);
+
+      serpiente = [{ x: centroX, y: centroY }];
+      actualizarConjuntoSerpiente();
+
+      direccionActual = "derecha";
+      direccionPendiente = "derecha";
+      puntaje = 0;
+      nivel = 1;
+      frutasComidas = 0;
+      crecimientoPendiente = 0;
+      pasosLentosRestantes = 0;
+
+      enJuego = false;
+      enPausa = false;
+      terminado = false;
+      obstaculos = [];
+      conjuntoObstaculos = new Set();
+      conceptoDemostracion = null;
+      juegoPausadoPorDemostracion = false;
+      bloqueoConceptoGameOver = false;
+
+      cerrarDemostracionBoton.classList.add("oculto-total");
+      cerrarCodigoConcepto();
+
+      crearFruta();
+      actualizarInterfaz();
+      dibujarTodo();
+
+      formulaElemento.innerHTML = `
+        <span>Movimiento normal:</span>
+        <strong>nueva posición = (posición + movimiento) mod tamaño</strong>
+      `;
+
+      activarConcepto(
+        "Teoría de grafos",
+        "Cada casilla es un vértice y cada movimiento permitido es una arista."
+      );
+
+      botonIniciar.disabled = false;
+      botonPausar.disabled = true;
+      botonPausar.textContent = "Pausar";
+    }
+
+    // Inicia o continúa una partida preparada.
+    function iniciarJuego() {
+      cerrarDemostracion(false);
+
+      if (terminado) {
+        prepararPartida();
+      }
+
+      if (enJuego && !enPausa) return;
+
+      enJuego = true;
+      enPausa = false;
+      terminado = false;
+      ocultarOverlay();
+
+      botonIniciar.disabled = true;
+      botonPausar.disabled = false;
+      botonPausar.textContent = "Pausar";
+
+      reiniciarTemporizador();
+      reproducirSonido("inicio");
+    }
+
+    // Borra la partida actual y vuelve al estado de inicio.
+    function reiniciarJuego() {
+      prepararPartida();
+      mostrarOverlay(
+        "Partida reiniciada",
+        "La serpiente volvió a longitud 1. Las mejoras conservan el estado elegido en sus botones.",
+        "Iniciar juego"
+      );
+    }
+
+    // Detiene o reanuda el movimiento automático.
+    function alternarPausa() {
+      if (conceptoDemostracion) {
+        cerrarDemostracion(true);
+        return;
+      }
+
+      if (!enJuego || terminado) return;
+
+      enPausa = !enPausa;
+
+      if (enPausa) {
+        detenerTemporizador();
+        botonPausar.textContent = "Continuar";
+        mostrarOverlay(
+          "Juego en pausa",
+          "El estado discreto del juego quedó detenido temporalmente.",
+          "Continuar"
+        );
+      } else {
+        ocultarOverlay();
+        botonPausar.textContent = "Pausar";
+        reiniciarTemporizador();
+      }
+    }
+
+    // Crea un intervalo usando la velocidad actual.
+    function reiniciarTemporizador() {
+      detenerTemporizador();
+      if (enJuego && !enPausa && !terminado && !conceptoDemostracion) {
+        temporizador = window.setInterval(actualizarJuego, obtenerVelocidadActual());
+      }
+      actualizarInterfaz();
+    }
+
+    // Elimina el intervalo para que no existan dos ciclos simultáneos.
+    function detenerTemporizador() {
+      if (temporizador !== null) {
+        window.clearInterval(temporizador);
+        temporizador = null;
+      }
+    }
+
+    /* ==================================================================
+       8. CICLO PRINCIPAL DEL JUEGO
+       Cada llamada genera un nuevo estado: calcula cabeza, evalúa choque,
+       mueve el cuerpo, procesa fruta y vuelve a dibujar.
+       ================================================================== */
+
+    function actualizarJuego() {
+      if (!enJuego || enPausa || terminado || conceptoDemostracion) return;
+
+      direccionActual = direccionPendiente;
+      const nuevaCabeza = calcularNuevaCabeza();
+      const comeraFruta = mismaPosicion(nuevaCabeza, fruta);
+
+      // Si la serpiente no crecerá, su cola se libera en este mismo paso.
+      const creceraEsteTurno = comeraFruta || crecimientoPendiente > 0;
+      const cola = serpiente[serpiente.length - 1];
+
+      if (!creceraEsteTurno) {
+        conjuntoSerpiente.delete(clave(cola));
+      }
+
+      // CONCEPTO [Lógica proposicional]:
+      // P = “la cabeza chocó con el cuerpo”. Q = “chocó con un obstáculo”.
+      // Game Over = P ∨ Q. En JavaScript, || significa la disyunción “O”.
+      // F∨F=F, V∨F=V, F∨V=V y V∨V=V.
+      const P_colisionCuerpo = detectarColisionCuerpo(nuevaCabeza);
+      const Q_colisionObstaculo = conjuntoObstaculos.has(clave(nuevaCabeza));
+      const gameOver = evaluarGameOver(P_colisionCuerpo, Q_colisionObstaculo);
+
+      if (gameOver) {
+        finalizarDerrota(P_colisionCuerpo, Q_colisionObstaculo);
+        return;
+      }
+
+      serpiente.unshift(nuevaCabeza);
+      conjuntoSerpiente.add(clave(nuevaCabeza));
+
+      if (comeraFruta) {
+        procesarFrutaComida();
+      } else if (crecimientoPendiente > 0) {
+        crecimientoPendiente -= 1;
+      } else {
+        serpiente.pop();
+      }
+
+      // El efecto de hielo dura una cantidad discreta de movimientos.
+      if (pasosLentosRestantes > 0) {
+        pasosLentosRestantes -= 1;
+        if (pasosLentosRestantes === 0) {
+          reiniciarTemporizador();
+        }
+      }
+
+      actualizarInterfaz();
+      dibujarTodo();
+    }
+
+    // Compara dos pares ordenados (x,y).
+    function mismaPosicion(a, b) {
+      return a.x === b.x && a.y === b.y;
+    }
+
+    /* ==================================================================
+       9. CONJUNTOS, COLISIÓN Y EFICIENCIA
+       La pertenencia al Set se usa para detectar choque con el cuerpo.
+       ================================================================== */
+
+    function detectarColisionCuerpo(posicion) {
+      // CONCEPTO [Conjuntos]:
+      // Si h es la nueva cabeza, h ∈ S significa que chocó con su cuerpo.
+      const perteneceAlCuerpo = conjuntoSerpiente.has(clave(posicion));
+
+      // CONCEPTO [Eficiencia / O]:
+      // Recorrer un arreglo de n segmentos cuesta O(n).
+      // Un Set permite consultar pertenencia en O(1) promedio.
+      return perteneceAlCuerpo;
+    }
+
+    /* ==================================================================
+       10. CRECIMIENTO, SUCESIONES Y SERIES
+       La serpiente empieza en 1 y cada fruta normal agrega un segmento.
+       ================================================================== */
+
+    function procesarFrutaComida() {
+      const tipo = TIPOS_FRUTA[fruta.tipo];
+
+      puntaje += tipo.puntos;
+      frutasComidas += 1;
+
+      // El movimiento actual ya produce +1; lo restante se guarda para
+      // turnos posteriores. La fruta dorada tiene crecimiento total +2.
+      crecimientoPendiente += Math.max(0, tipo.crecimiento - 1);
+
+      // CONCEPTO [Sucesiones]:
+      // En modo normal la longitud es 1,2,3,4,... y a_n = 1+n.
+      activarConcepto(
+        "Sucesiones",
+        `${tipo.nombre}: longitud actual ${serpiente.length}. En modo normal, después de n frutas se cumple aₙ = 1 + n.`
+      );
+
+      // CONCEPTO [Series]:
+      // Con frutas normales, P(n)=10+10+...+10=10n.
+      if (!mejoraFrutasActiva) {
+        const puntajeTeorico = calcularPuntajeNormal(frutasComidas);
+        activarConcepto(
+          "Series",
+          `Modo normal: P(${frutasComidas}) = 10 × ${frutasComidas} = ${puntajeTeorico} puntos.`
+        );
+      }
+
+      if (fruta.tipo === "hielo") {
+        pasosLentosRestantes = 10;
+      }
+
+      reproducirSonido(fruta.tipo === "dorada" ? "dorada" : "fruta");
+
+      const nuevoNivel = Math.min(
+        NIVEL_MAXIMO,
+        1 + Math.floor(frutasComidas / FRUTAS_POR_NIVEL)
+      );
+
+      if (nuevoNivel > nivel) {
+        nivel = nuevoNivel;
+        generarObstaculosParaNivel();
+        reproducirSonido("nivel");
+      }
+
+      if (frutasComidas >= FRUTAS_POR_NIVEL * NIVEL_MAXIMO) {
+        finalizarVictoria();
+        return;
+      }
+
+      crearFruta();
+      reiniciarTemporizador();
+    }
+
+    /* ==================================================================
+       11. FRUTAS Y MEJORAS OPCIONALES
+       Los dos botones son independientes. Ninguna mejora se ve al inicio.
+       ================================================================== */
+
+    // Busca una casilla que no esté ocupada por la serpiente ni obstáculos.
+    function posicionAleatoriaLibre() {
+      const maxIntentos = COLUMNAS * FILAS * 2;
+
+      for (let intento = 0; intento < maxIntentos; intento += 1) {
+        const candidata = {
+          x: Math.floor(Math.random() * COLUMNAS),
+          y: Math.floor(Math.random() * FILAS)
+        };
+
+        const ocupadaPorSerpiente = conjuntoSerpiente.has(clave(candidata));
+        const ocupadaPorObstaculo = conjuntoObstaculos.has(clave(candidata));
+
+        if (!ocupadaPorSerpiente && !ocupadaPorObstaculo) {
+          return candidata;
+        }
+      }
+
+      // Si la búsqueda aleatoria falla, se recorre el tablero ordenadamente.
+      for (let y = 0; y < FILAS; y += 1) {
+        for (let x = 0; x < COLUMNAS; x += 1) {
+          const candidata = { x, y };
+          if (!conjuntoSerpiente.has(clave(candidata)) &&
+              !conjuntoObstaculos.has(clave(candidata))) {
+            return candidata;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    // Elige el tipo de fruta. Sin mejora siempre devuelve "normal".
+    function elegirTipoFruta() {
+      if (!mejoraFrutasActiva) return "normal";
+
+      const azar = Math.random();
+      if (azar < 0.68) return "normal";
+      if (azar < 0.86) return "dorada";
+      return "hielo";
+    }
+
+    // Crea una fruta nueva en una casilla libre.
+    function crearFruta(tipoForzado = null) {
+      const posicion = posicionAleatoriaLibre();
+      if (!posicion) return;
+
+      fruta = {
+        ...posicion,
+        tipo: tipoForzado || elegirTipoFruta()
+      };
+    }
+
+    // Activa o desactiva únicamente la mejora de velocidad por puntaje.
+    function alternarMejoraVelocidad() {
+      mejoraVelocidadActiva = !mejoraVelocidadActiva;
+
+      botonMejoraVelocidad.textContent = mejoraVelocidadActiva
+        ? "Mejora 1: velocidad adaptativa — ON"
+        : "Mejora 1: velocidad adaptativa — OFF";
+
+      botonMejoraVelocidad.classList.toggle("mejora-activa", mejoraVelocidadActiva);
+
+      activarConcepto(
+        "Funciones por partes",
+        mejoraVelocidadActiva
+          ? `Mejora activada: T(${puntaje}) = ${velocidadPorPuntaje(puntaje)} ms según el tramo del puntaje.`
+          : "Mejora desactivada: el juego vuelve a utilizar solamente la velocidad normal por nivel.",
+        true
+      );
+
+      actualizarEstadoMejoras();
+      reiniciarTemporizador();
+      dibujarTodo();
+    }
+
+    // Activa o desactiva únicamente las frutas especiales.
+    function alternarMejoraFrutas() {
+      mejoraFrutasActiva = !mejoraFrutasActiva;
+
+      botonMejoraFrutas.textContent = mejoraFrutasActiva
+        ? "Mejora 2: frutas especiales — ON"
+        : "Mejora 2: frutas especiales — OFF";
+
+      botonMejoraFrutas.classList.toggle("mejora-activa", mejoraFrutasActiva);
+      leyendaDorada.classList.toggle("oculto-total", !mejoraFrutasActiva);
+      leyendaHielo.classList.toggle("oculto-total", !mejoraFrutasActiva);
+      tablaFrutas.classList.toggle("oculto-total", !mejoraFrutasActiva);
+
+      // Al apagarla, cualquier fruta especial visible se reemplaza por normal.
+      if (!mejoraFrutasActiva && fruta.tipo !== "normal") {
+        crearFruta("normal");
+      } else if (mejoraFrutasActiva) {
+        crearFruta();
+      }
+
+      activarConcepto(
+        "Conjuntos",
+        mejoraFrutasActiva
+          ? "Mejora activada: F = {normal, dorada, hielo}. Cada elemento tiene puntaje y efecto definidos."
+          : "Mejora desactivada: el conjunto visible de frutas vuelve a F = {normal}.",
+        true
+      );
+
+      actualizarEstadoMejoras();
+      actualizarInterfaz();
+      dibujarTodo();
+    }
+
+    // Resume en una sola frase qué mejoras están activas.
+    function actualizarEstadoMejoras() {
+      const velocidad = mejoraVelocidadActiva
+        ? "velocidad adaptativa activada"
+        : "velocidad adaptativa desactivada";
+      const frutas = mejoraFrutasActiva
+        ? "frutas especiales activadas"
+        : "solo fruta normal";
+
+      estadoMejoras.textContent = `Estado: ${velocidad} · ${frutas}.`;
+    }
+
+    /* ==================================================================
+       12. OBSTÁCULOS Y NIVELES
+       Los obstáculos aparecen conforme aumenta el nivel.
+       ================================================================== */
+
+    function generarObstaculosParaNivel() {
+      const cantidadObjetivo = Math.max(0, (nivel - 1) * 2);
+      obstaculos = [];
+      conjuntoObstaculos = new Set();
+
+      while (obstaculos.length < cantidadObjetivo) {
+        const posicion = posicionAleatoriaLibre();
+        if (!posicion) break;
+
+        if (mismaPosicion(posicion, fruta)) continue;
+
+        obstaculos.push(posicion);
+        conjuntoObstaculos.add(clave(posicion));
+      }
+
+      activarConcepto(
+        "Lógica proposicional",
+        "La derrota se evalúa como P ∨ Q: colisión con cuerpo OR colisión con obstáculo."
+      );
+    }
+
+    /* ==================================================================
+       13. CONTROL DE DIRECCIÓN Y SISTEMAS DE NUMERACIÓN
+       Las flechas modifican la dirección pendiente para el próximo paso.
+       ================================================================== */
+
+    function cambiarDireccion(nuevaDireccion) {
+      if (!DIRECCIONES[nuevaDireccion] || terminado) return;
+
+      if (conceptoDemostracion) {
+        cerrarDemostracion(true);
+      }
+
+      const opuestaActual = DIRECCIONES[direccionActual].opuesta;
+
+      // No se permite retroceder de manera inmediata.
+      if (nuevaDireccion === opuestaActual) return;
+
+      direccionPendiente = nuevaDireccion;
+
+      const codigo = CODIGOS_DIRECCION[nuevaDireccion];
+      activarConcepto(
+        "Sistemas de numeración",
+        `${nuevaDireccion}: decimal ${codigo.decimal}, binario ${codigo.binario}. Se necesitan 2 bits para representar 4 direcciones.`
+      );
+    }
+
+    document.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape" && !codigoPanel.classList.contains("oculto-total")) {
+        cerrarCodigoConcepto();
+        return;
+      }
+      const teclas = {
+        ArrowUp: "arriba",
+        ArrowDown: "abajo",
+        ArrowLeft: "izquierda",
+        ArrowRight: "derecha"
+      };
+
+      if (teclas[evento.key]) {
+        evento.preventDefault();
+        cambiarDireccion(teclas[evento.key]);
+      }
+
+      if (evento.code === "Space") {
+        evento.preventDefault();
+        alternarPausa();
+      }
+    });
+
+    document.querySelectorAll("[data-dir]").forEach((boton) => {
+      boton.addEventListener("click", () => cambiarDireccion(boton.dataset.dir));
+    });
+
+    /* ==================================================================
+       14. VICTORIA, DERROTA Y LÓGICA PROPOSICIONAL
+       La explicación de Game Over queda bloqueada para que una flecha u otro
+       evento automático no la reemplace después de la colisión.
+       ================================================================== */
+
+    function finalizarDerrota(colisionCuerpo, colisionObstaculo) {
+      terminado = true;
+      enJuego = false;
+      detenerTemporizador();
+
+      conceptoDemostracion = null;
+      juegoPausadoPorDemostracion = false;
+      cerrarDemostracionBoton.classList.add("oculto-total");
+      codigoPanel.classList.add("oculto-total");
+      bloqueoConceptoGameOver = true;
+
+      reproducirSonido("derrota");
+
+      const causas = [];
+      if (colisionCuerpo) causas.push("colisión con el cuerpo");
+      if (colisionObstaculo) causas.push("colisión con un obstáculo");
+
+      activarConcepto(
+        "Lógica proposicional",
+        `Game Over = P ∨ Q. La proposición resultó verdadera por ${causas.join(" y ")}.`,
+        true
+      );
+
+      mostrarOverlay(
+        "Game Over",
+        `Puntaje final: ${puntaje}. La condición P ∨ Q fue verdadera por ${causas.join(" y ")}.`,
+        "Jugar otra vez"
+      );
+
+      botonIniciar.disabled = false;
+      botonPausar.disabled = true;
+    }
+
+    function finalizarVictoria() {
+      terminado = true;
+      enJuego = false;
+      detenerTemporizador();
+      reproducirSonido("victoria");
+
+      activarConcepto(
+        "Sucesiones",
+        `Completaste ${frutasComidas} términos de crecimiento y superaste los ${NIVEL_MAXIMO} niveles.`,
+        true
+      );
+
+      mostrarOverlay(
+        "¡Victoria discreta!",
+        `Completaste ${NIVEL_MAXIMO} niveles con ${puntaje} puntos y longitud ${serpiente.length}.`,
+        "Jugar otra vez"
+      );
+
+      botonIniciar.disabled = false;
+      botonPausar.disabled = true;
+    }
+
+    /* ==================================================================
+       15. DIBUJO DEL JUEGO
+       El canvas se limpia y se redibujan grilla, frutas, obstáculos y cuerpo.
+       ================================================================== */
+
+    function dibujarTodo() {
+      if (conceptoDemostracion) {
+        dibujarDemostracionConcepto(conceptoDemostracion);
+        return;
+      }
+
+      dibujarFondoTablero();
+      dibujarObstaculos();
+      dibujarFruta();
+      dibujarSerpiente();
+      dibujarIndicadoresMejoras();
+    }
+
+    function dibujarFondoTablero() {
+      const gradiente = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradiente.addColorStop(0, "#07101e");
+      gradiente.addColorStop(1, "#040811");
+      ctx.fillStyle = gradiente;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(100,246,255,0.085)";
+      ctx.lineWidth = 1;
+
+      for (let x = 0; x <= COLUMNAS; x += 1) {
+        ctx.beginPath();
+        ctx.moveTo(x * ANCHO_CELDA, 0);
+        ctx.lineTo(x * ANCHO_CELDA, canvas.height);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y <= FILAS; y += 1) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * ALTO_CELDA);
+        ctx.lineTo(canvas.width, y * ALTO_CELDA);
+        ctx.stroke();
+      }
+    }
+
+    function dibujarSerpiente() {
+      serpiente.forEach((segmento, indice) => {
+        const margen = 5;
+        const x = segmento.x * ANCHO_CELDA + margen;
+        const y = segmento.y * ALTO_CELDA + margen;
+        const ancho = ANCHO_CELDA - margen * 2;
+        const alto = ALTO_CELDA - margen * 2;
+
+        const gradiente = ctx.createLinearGradient(x, y, x + ancho, y + alto);
+        gradiente.addColorStop(0, indice === 0 ? "#d9ff82" : "#6eff8f");
+        gradiente.addColorStop(1, indice === 0 ? "#64f6ff" : "#1fd487");
+
+        ctx.save();
+        ctx.shadowColor = indice === 0 ? "#64f6ff" : "#6eff8f";
+        ctx.shadowBlur = indice === 0 ? 18 : 9;
+        ctx.fillStyle = gradiente;
+        rectanguloRedondeado(ctx, x, y, ancho, alto, 9);
+        ctx.fill();
+        ctx.restore();
+
+        if (indice === 0) dibujarOjos(segmento);
+      });
+    }
+
+    function dibujarOjos(cabeza) {
+      const centroX = cabeza.x * ANCHO_CELDA + ANCHO_CELDA / 2;
+      const centroY = cabeza.y * ALTO_CELDA + ALTO_CELDA / 2;
+      const movimiento = DIRECCIONES[direccionActual];
+      const lateral = { x: -movimiento.y, y: movimiento.x };
+
+      for (const signo of [-1, 1]) {
+        const x = centroX + movimiento.x * 10 + lateral.x * signo * 9;
+        const y = centroY + movimiento.y * 10 + lateral.y * signo * 9;
+        ctx.fillStyle = "#061015";
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function dibujarFruta() {
+      const tipo = TIPOS_FRUTA[fruta.tipo];
+      const cx = fruta.x * ANCHO_CELDA + ANCHO_CELDA / 2;
+      const cy = fruta.y * ALTO_CELDA + ALTO_CELDA / 2;
+      const radio = Math.min(ANCHO_CELDA, ALTO_CELDA) * 0.28;
+
+      ctx.save();
+      ctx.shadowColor = tipo.color;
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = tipo.color;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radio, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (fruta.tipo === "dorada") {
+        ctx.fillStyle = "#fff7be";
+        ctx.font = "bold 19px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("★", cx, cy + 1);
+      } else if (fruta.tipo === "hielo") {
+        ctx.fillStyle = "#e9ffff";
+        ctx.font = "bold 18px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("✦", cx, cy + 1);
+      } else {
+        ctx.strokeStyle = "#6eff8f";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - radio);
+        ctx.lineTo(cx + 5, cy - radio - 9);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function dibujarObstaculos() {
+      obstaculos.forEach((obstaculo) => {
+        const margen = 7;
+        const x = obstaculo.x * ANCHO_CELDA + margen;
+        const y = obstaculo.y * ALTO_CELDA + margen;
+        const ancho = ANCHO_CELDA - margen * 2;
+        const alto = ALTO_CELDA - margen * 2;
+
+        ctx.save();
+        ctx.fillStyle = "#8d98b1";
+        ctx.strokeStyle = "#d9e2f2";
+        ctx.lineWidth = 2;
+        rectanguloRedondeado(ctx, x, y, ancho, alto, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
+    function dibujarIndicadoresMejoras() {
+      ctx.save();
+      ctx.font = "bold 17px ui-monospace, monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+
+      let y = 12;
+      if (mejoraVelocidadActiva) {
+        ctx.fillStyle = "#ffd166";
+        ctx.fillText(`T(puntaje) activa: ${velocidadPorPuntaje(puntaje)} ms`, 14, y);
+        y += 25;
+      }
+
+      if (mejoraFrutasActiva) {
+        ctx.fillStyle = "#c38cff";
+        ctx.fillText("F = {normal, dorada, hielo}", 14, y);
+        y += 25;
+      }
+
+      if (pasosLentosRestantes > 0) {
+        ctx.fillStyle = "#64f6ff";
+        ctx.fillText(`Efecto hielo: ${pasosLentosRestantes} pasos`, 14, y);
+      }
+      ctx.restore();
+    }
+
+    function rectanguloRedondeado(contexto, x, y, ancho, alto, radio) {
+      const r = Math.min(radio, ancho / 2, alto / 2);
+      contexto.beginPath();
+      contexto.moveTo(x + r, y);
+      contexto.arcTo(x + ancho, y, x + ancho, y + alto, r);
+      contexto.arcTo(x + ancho, y + alto, x, y + alto, r);
+      contexto.arcTo(x, y + alto, x, y, r);
+      contexto.arcTo(x, y, x + ancho, y, r);
+      contexto.closePath();
+    }
+
+    /* ==================================================================
+       16. DATOS DEL BANCO DE 12 PREGUNTAS
+       Cada entrada contiene pregunta, respuesta, pista de Ctrl+F y el
+       fragmento real que se mostrará al presionar “Ver código”.
+       ================================================================== */
+
+    const DATOS_CONCEPTOS = Object.freeze({
+      "Aritmética modular": {
+        explicacion: "El módulo mantiene las coordenadas dentro del tablero y produce el movimiento toroidal.",
+        pregunta: "Si la grilla tiene 20 columnas, la serpiente está en la columna 19 y avanza a la derecha, ¿en qué columna aparece? Escribe la fórmula.",
+        respuesta: "nueva columna = (19 + 1) mod 20 = 20 mod 20 = 0.\nAparece en la columna 0.",
+        buscar: "CONCEPTO [Aritmética modular]",
+        codigo: `// CONCEPTO [Aritmética modular]:
+function moduloPositivo(valor, modulo) {
+  return ((valor % modulo) + modulo) % modulo;
+}
+
+const nuevaCabeza = {
+  x: moduloPositivo(posicionSinModulo.x, COLUMNAS),
+  y: moduloPositivo(posicionSinModulo.y, FILAS)
+};`
+      },
+      "Sucesiones": {
+        explicacion: "La longitud de la serpiente forma una sucesión porque cada fruta normal agrega exactamente un segmento.",
+        pregunta: "El largo empieza en 1 y crece de 1 en 1 por cada fruta. Escribe el término general tras comer n frutas.",
+        respuesta: "Sucesión: 1, 2, 3, 4, ...\nTérmino general: aₙ = 1 + n.",
+        buscar: "CONCEPTO [Sucesiones]",
+        codigo: `// CONCEPTO [Sucesiones]:
+// En modo normal la longitud es 1,2,3,4,... y a_n = 1+n.
+function procesarFrutaComida() {
+  frutasComidas += 1;
+  crecimientoPendiente += Math.max(0, tipo.crecimiento - 1);
+}`
+      },
+      "Series": {
+        explicacion: "El puntaje normal es la suma repetida de 10 puntos por cada fruta.",
+        pregunta: "Si cada fruta vale 10 puntos, ¿cuál es el puntaje total tras comer n frutas? Exprésalo como suma y simplifica.",
+        respuesta: "P(n) = 10 + 10 + ... + 10, con n términos.\nPor tanto, P(n) = Σ10 = 10n.",
+        buscar: "CONCEPTO [Series]",
+        codigo: `// CONCEPTO [Series]:
+// 10+10+...+10 = 10n.
+function calcularPuntajeNormal(n) {
+  return PUNTOS_FRUTA_NORMAL * n;
+}`
+      },
+      "Conjuntos": {
+        explicacion: "El cuerpo se representa como un conjunto de pares ordenados y la colisión se detecta mediante pertenencia.",
+        pregunta: "Representa el cuerpo como conjunto. ¿Con qué operación o relación de conjuntos se detecta chocar consigo misma?",
+        respuesta: "S = {(x₁,y₁), (x₂,y₂), ..., (xₙ,yₙ)}.\nSi h es la cabeza, hay choque cuando h ∈ S.",
+        buscar: "CONCEPTO [Conjuntos]",
+        codigo: `// CONCEPTO [Conjuntos]:
+function detectarColisionCuerpo(posicion) {
+  const perteneceAlCuerpo = conjuntoSerpiente.has(clave(posicion));
+  return perteneceAlCuerpo;
+}`
+      },
+      "Lógica proposicional": {
+        explicacion: "La derrota es una disyunción: basta que ocurra una de las dos colisiones.",
+        pregunta: "Escribe la condición de Game Over en forma simbólica. ¿Es conjunción o disyunción? Justifica.",
+        respuesta: "P: choca con el cuerpo. Q: choca con un obstáculo.\nGame Over = P ∨ Q. Es una disyunción porque basta que P o Q sea verdadera.",
+        buscar: "CONCEPTO [Lógica proposicional]",
+        codigo: `// CONCEPTO [Lógica proposicional]:
+// P = choca con el cuerpo. Q = choca con un obstáculo.
+// || representa OR: basta que una proposición sea verdadera.
+function evaluarGameOver(P, Q) {
+  return P || Q;
+}
+
+const P_colisionCuerpo = detectarColisionCuerpo(nuevaCabeza);
+const Q_colisionObstaculo = conjuntoObstaculos.has(clave(nuevaCabeza));
+const gameOver = evaluarGameOver(P_colisionCuerpo, Q_colisionObstaculo);
+
+// F||F=F: continúa; V||F=V, F||V=V, V||V=V: Game Over.`
+      },
+      "Funciones por partes": {
+        explicacion: "La mejora 1 relaciona cada intervalo de puntaje con una velocidad específica.",
+        pregunta: "La velocidad sube por niveles según el puntaje. Modela la velocidad como función por partes y señala el dominio.",
+        respuesta: "T(p)=175 ms si 0≤p<40; 135 ms si 40≤p<80; 95 ms si p≥80.\nT(p) es tiempo de espera: cuando baja, la serpiente acelera. La pantalla muestra V=190/T(p): 1.09×, 1.41× y 2.00×.",
+        buscar: "CONCEPTO [Funciones por partes]",
+        codigo: `// CONCEPTO [Funciones por partes]:
+function velocidadPorPuntaje(p) {
+  if (p < 40) return 175;
+  if (p < 80) return 135;
+  return 95;
+}
+
+const multiplicador = 190 / velocidadPorPuntaje(puntaje);
+// 175 ms → 1.09×; 135 ms → 1.41×; 95 ms → 2.00×`
+      },
+      "Conteo": {
+        explicacion: "Al prohibir el retroceso quedan tres decisiones posibles en cada paso.",
+        pregunta: "En cada paso la serpiente puede ir en 3 direcciones. ¿Cuántas trayectorias distintas hay en 4 pasos?",
+        respuesta: "Por la regla del producto: 3×3×3×3 = 3⁴ = 81 trayectorias, sin considerar colisiones.",
+        buscar: "CONCEPTO [Conteo]",
+        codigo: `// CONCEPTO [Conteo]:
+function trayectoriasSinRetroceso(pasos) {
+  return 3 ** pasos;
+}
+
+trayectoriasSinRetroceso(4); // 81`
+      },
+      "Eficiencia / O": {
+        explicacion: "La búsqueda clásica recorre n segmentos; el Set mejora la consulta de pertenencia.",
+        pregunta: "Si se recorre todo el cuerpo de largo n, ¿cuál es el costo en notación O? ¿Se puede hacer en O(1)?",
+        respuesta: "El recorrido completo cuesta O(n). Sí: con un Set o conjunto hash, has() consulta pertenencia en O(1) promedio.",
+        buscar: "CONCEPTO [Eficiencia / O]",
+        codigo: `// CONCEPTO [Eficiencia / O]:
+// Arreglo tradicional: O(n).
+// Set.has(): O(1) promedio.
+const perteneceAlCuerpo = conjuntoSerpiente.has(clave(posicion));`
+      },
+      "Relaciones": {
+        explicacion: "La relación “estar en la misma fila” compara la coordenada y de dos casillas.",
+        pregunta: "Define la relación estar en la misma fila. Verifica si es reflexiva, simétrica y transitiva.",
+        respuesta: "aRb ⇔ a.y=b.y. Es reflexiva, simétrica y transitiva; por tanto, es una relación de equivalencia.",
+        buscar: "CONCEPTO [Relaciones]",
+        codigo: `// CONCEPTO [Relaciones]:
+// a R b si a.y = b.y.
+function mismaFila(a, b) {
+  return a.y === b.y;
+}`
+      },
+      "Teoría de grafos": {
+        explicacion: "Cada casilla es un vértice y cada movimiento válido crea una arista.",
+        pregunta: "Si cada casilla es un vértice y unimos casillas vecinas, ¿qué grafo se forma? ¿Cuántas aristas salen de una casilla interior?",
+        respuesta: "Se forma un grafo de grilla. Una casilla interior tiene grado 4. En el tablero toroidal, todas las casillas tienen grado 4.",
+        buscar: "CONCEPTO [Teoría de grafos]",
+        codigo: `// CONCEPTO [Teoría de grafos]:
+function vecinosToroidales(posicion) {
+  return Object.values(DIRECCIONES).map((movimiento) => ({
+    x: moduloPositivo(posicion.x + movimiento.x, COLUMNAS),
+    y: moduloPositivo(posicion.y + movimiento.y, FILAS)
+  }));
+}`
+      },
+      "Sistemas de numeración": {
+        explicacion: "Las cuatro direcciones se representan con números decimales y cadenas binarias de dos bits.",
+        pregunta: "Las 4 direcciones se codifican como 0,1,2,3. ¿Cómo se escriben en binario con 2 bits?",
+        respuesta: "Arriba: 0=00; abajo: 1=01; izquierda: 2=10; derecha: 3=11. Se usan 2 bits porque 2²=4.",
+        buscar: "CONCEPTO [Sistemas de numeración]",
+        codigo: `// CONCEPTO [Sistemas de numeración]:
+const CODIGOS_DIRECCION = {
+  arriba:    { decimal: 0, binario: "00" },
+  abajo:     { decimal: 1, binario: "01" },
+  izquierda: { decimal: 2, binario: "10" },
+  derecha:   { decimal: 3, binario: "11" }
+};`
+      },
+      "Inducción matemática": {
+        explicacion: "La suma de los primeros n naturales se demuestra con caso base, hipótesis y paso inductivo.",
+        pregunta: "Demuestra por inducción que 1+2+...+n=n(n+1)/2. ¿Cómo se relaciona con el puntaje acumulado?",
+        respuesta: "Base n=1: se cumple. Hipótesis: 1+...+k=k(k+1)/2. Al sumar k+1 se obtiene (k+1)(k+2)/2. Si la fruta i valiera 10i, el puntaje sería 10·n(n+1)/2=5n(n+1). En el modo normal actual es 10n.",
+        buscar: "CONCEPTO [Inducción matemática]",
+        codigo: `// CONCEPTO [Inducción matemática]:
+function sumaPrimerosNaturales(n) {
+  return n * (n + 1) / 2;
+}
+
+// Puntaje triangular hipotético: 10 * sumaPrimerosNaturales(n).`
+      }
+    });
+
+    /* ==================================================================
+       17. DEMOSTRACIONES VISUALES SOBRE EL TABLERO
+       Al pulsar un concepto se pausa la partida y el canvas se convierte
+       en una pizarra con un ejemplo matemático.
+       ================================================================== */
+
+    function dibujarDemostracionConcepto(concepto) {
+      ctx.fillStyle = "#050914";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(100,246,255,0.06)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += 50) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += 50) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      textoDemo(`Ejemplo: ${concepto}`, canvas.width / 2, 55, 31, "#64f6ff");
+
+      const dibujantes = {
+        "Aritmética modular": dibujarDemoModular,
+        "Sucesiones": dibujarDemoSucesiones,
+        "Series": dibujarDemoSeries,
+        "Conjuntos": dibujarDemoConjuntos,
+        "Lógica proposicional": dibujarDemoLogica,
+        "Funciones por partes": dibujarDemoFunciones,
+        "Conteo": dibujarDemoConteo,
+        "Eficiencia / O": dibujarDemoEficiencia,
+        "Relaciones": dibujarDemoRelaciones,
+        "Teoría de grafos": dibujarDemoGrafos,
+        "Sistemas de numeración": dibujarDemoBinario,
+        "Inducción matemática": dibujarDemoInduccion
+      };
+
+      if (dibujantes[concepto]) dibujantes[concepto]();
+    }
+
+    function textoDemo(texto, x, y, tamano = 25, color = "#f5f8ff", alineacion = "center") {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = `700 ${tamano}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.textAlign = alineacion;
+      ctx.textBaseline = "middle";
+      ctx.fillText(texto, x, y);
+      ctx.restore();
+    }
+
+    function cajaDemo(x, y, ancho, alto, borde = "#64f6ff", fondo = "rgba(100,246,255,.1)") {
+      ctx.save();
+      ctx.fillStyle = fondo;
+      ctx.strokeStyle = borde;
+      ctx.lineWidth = 3;
+      rectanguloRedondeado(ctx, x, y, ancho, alto, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function flechaDemo(x1, y1, x2, y2, color = "#ffd166", grosor = 4) {
+      const angulo = Math.atan2(y2 - y1, x2 - x1);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = grosor;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 14 * Math.cos(angulo - Math.PI / 6), y2 - 14 * Math.sin(angulo - Math.PI / 6));
+      ctx.lineTo(x2 - 14 * Math.cos(angulo + Math.PI / 6), y2 - 14 * Math.sin(angulo + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function dibujarDemoModular() {
+      const inicioX = 90;
+      const y = 260;
+      const ancho = 41;
+      for (let i = 0; i < 20; i += 1) {
+        const color = i === 19 ? "#ff5576" : i === 0 ? "#6eff8f" : "#64f6ff";
+        cajaDemo(inicioX + i * ancho, y, 34, 55, color, "rgba(255,255,255,.035)");
+        textoDemo(String(i), inicioX + i * ancho + 17, y + 28, 16, color);
+      }
+      flechaDemo(887, 235, 107, 235, "#ffd166", 5);
+      textoDemo("sale por 19 → reaparece en 0", 500, 190, 25, "#ffd166");
+      textoDemo("(19 + 1) mod 20 = 0", 500, 420, 42, "#6eff8f");
+    }
+
+    function dibujarDemoSucesiones() {
+      const valores = [1, 2, 3, 4, 5];
+      valores.forEach((valor, i) => {
+        cajaDemo(135 + i * 150, 230, 100, 100, "#6eff8f", "rgba(110,255,143,.08)");
+        textoDemo(String(valor), 185 + i * 150, 280, 40, "#6eff8f");
+        if (i < valores.length - 1) flechaDemo(238 + i * 150, 280, 280 + i * 150, 280);
+      });
+      textoDemo("1, 2, 3, 4, ...", 500, 430, 38, "#ffd166");
+      textoDemo("aₙ = 1 + n", 500, 525, 42, "#64f6ff");
+    }
+
+    function dibujarDemoSeries() {
+      for (let i = 0; i < 6; i += 1) {
+        ctx.save();
+        ctx.fillStyle = "#ffd166";
+        ctx.shadowColor = "#ffd166";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(170 + i * 130, 270, 38, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        textoDemo("10", 170 + i * 130, 270, 22, "#111827");
+        if (i < 5) textoDemo("+", 235 + i * 130, 270, 30, "#f5f8ff");
+      }
+      textoDemo("10 + 10 + ... + 10", 500, 410, 34, "#ffd166");
+      textoDemo("P(n) = Σ10 = 10n", 500, 520, 42, "#6eff8f");
+    }
+
+    function dibujarDemoConjuntos() {
+      const celdas = [
+        {x: 280, y: 250}, {x: 350, y: 250}, {x: 420, y: 250}, {x: 490, y: 250}
+      ];
+      celdas.forEach((p, i) => {
+        cajaDemo(p.x, p.y, 58, 58, "#6eff8f", "rgba(110,255,143,.12)");
+        textoDemo(`s${i + 1}`, p.x + 29, p.y + 30, 17, "#6eff8f");
+      });
+      cajaDemo(420, 250, 58, 58, "#ff5576", "rgba(255,85,118,.18)");
+      textoDemo("h", 449, 280, 22, "#ff5576");
+      textoDemo("S = {(x₁,y₁), ..., (xₙ,yₙ)}", 500, 420, 34, "#64f6ff");
+      textoDemo("h ∈ S  →  colisión", 500, 525, 42, "#ff5576");
+    }
+
+    function dibujarDemoLogica() {
+      cajaDemo(150, 210, 250, 130, "#ff5576", "rgba(255,85,118,.09)");
+      cajaDemo(600, 210, 250, 130, "#ffd166", "rgba(255,209,102,.09)");
+      textoDemo("P", 275, 250, 45, "#ff5576");
+      textoDemo("choca con cuerpo", 275, 305, 20, "#f5f8ff");
+      textoDemo("Q", 725, 250, 45, "#ffd166");
+      textoDemo("choca con obstáculo", 725, 305, 20, "#f5f8ff");
+      flechaDemo(400, 275, 465, 360);
+      flechaDemo(600, 275, 535, 360);
+      cajaDemo(410, 355, 180, 90, "#64f6ff", "rgba(100,246,255,.1)");
+      textoDemo("OR / ∨", 500, 400, 34, "#64f6ff");
+      textoDemo("Game Over = P ∨ Q", 500, 540, 42, "#6eff8f");
+    }
+
+    function dibujarDemoFunciones() {
+      const tramos = [
+        {x: 120, t: "0 ≤ p < 40", v: "175 ms"},
+        {x: 390, t: "40 ≤ p < 80", v: "135 ms"},
+        {x: 660, t: "p ≥ 80", v: "95 ms"}
+      ];
+      tramos.forEach((tramo, i) => {
+        cajaDemo(tramo.x, 220, 220, 150, ["#64f6ff", "#ffd166", "#ff5576"][i], "rgba(255,255,255,.04)");
+        textoDemo(tramo.t, tramo.x + 110, 265, 21, "#f5f8ff");
+        textoDemo(tramo.v, tramo.x + 110, 325, 37, ["#64f6ff", "#ffd166", "#ff5576"][i]);
+      });
+      textoDemo("T(p) es una función por partes", 500, 475, 37, "#6eff8f");
+      textoDemo("Dominio: p ∈ ℕ₀", 500, 555, 29, "#aab6d4");
+      textoDemo(mejoraVelocidadActiva ? "MEJORA ACTIVADA" : "Presiona Mejora 1 para aplicarla", 500, 645, 24, mejoraVelocidadActiva ? "#ffd166" : "#aab6d4");
+    }
+
+    function dibujarDemoConteo() {
+      const cx = 500;
+      const cy = 250;
+      cajaDemo(cx - 42, cy - 42, 84, 84, "#64f6ff", "rgba(100,246,255,.18)");
+      textoDemo("S", cx, cy, 34, "#64f6ff");
+      const destinos = [
+        {x: 500, y: 120, t: "arriba"},
+        {x: 710, y: 330, t: "derecha"},
+        {x: 290, y: 330, t: "izquierda"}
+      ];
+      destinos.forEach((d) => {
+        flechaDemo(cx, cy, d.x, d.y);
+        textoDemo(d.t, d.x, d.y + 35, 20, "#f5f8ff");
+      });
+      textoDemo("3 opciones por paso", 500, 455, 32, "#ffd166");
+      textoDemo(`3⁴ = ${trayectoriasSinRetroceso(4)} trayectorias`, 500, 555, 44, "#6eff8f");
+    }
+
+    function dibujarDemoEficiencia() {
+      textoDemo("Recorrido tradicional del cuerpo", 500, 150, 30, "#f5f8ff");
+      for (let i = 0; i < 9; i += 1) {
+        cajaDemo(95 + i * 91, 245, 65, 65, i === 8 ? "#ff5576" : "#6eff8f", "rgba(255,255,255,.04)");
+        textoDemo(String(i + 1), 127 + i * 91, 278, 20, "#f5f8ff");
+      }
+      flechaDemo(110, 365, 860, 365, "#ffd166", 5);
+      textoDemo("hasta n comparaciones → O(n)", 500, 435, 35, "#ff5576");
+      cajaDemo(330, 510, 340, 90, "#64f6ff", "rgba(100,246,255,.08)");
+      textoDemo("Set.has(posición) → O(1) promedio", 500, 555, 28, "#64f6ff");
+    }
+
+    function dibujarDemoRelaciones() {
+      const filaY = 275;
+      for (let i = 0; i < 6; i += 1) {
+        cajaDemo(205 + i * 100, filaY, 72, 72, "#64f6ff", "rgba(100,246,255,.07)");
+        textoDemo(`c${i + 1}`, 241 + i * 100, filaY + 36, 20, "#64f6ff");
+      }
+      textoDemo("a R b ⇔ a.y = b.y", 500, 425, 40, "#ffd166");
+      textoDemo("Reflexiva ✓   Simétrica ✓   Transitiva ✓", 500, 525, 29, "#6eff8f");
+      textoDemo("Relación de equivalencia", 500, 605, 28, "#aab6d4");
+    }
+
+    function dibujarDemoGrafos() {
+      const centro = {x: 500, y: 340};
+      const vecinos = [
+        {x: 500, y: 170}, {x: 670, y: 340}, {x: 500, y: 510}, {x: 330, y: 340}
+      ];
+      vecinos.forEach((p) => flechaDemo(centro.x, centro.y, p.x, p.y, "#ffd166", 4));
+      cajaDemo(centro.x - 45, centro.y - 45, 90, 90, "#6eff8f", "rgba(110,255,143,.14)");
+      textoDemo("v", centro.x, centro.y, 38, "#6eff8f");
+      vecinos.forEach((p, i) => {
+        cajaDemo(p.x - 38, p.y - 38, 76, 76, "#64f6ff", "rgba(100,246,255,.1)");
+        textoDemo(`v${i + 1}`, p.x, p.y, 23, "#64f6ff");
+      });
+      textoDemo("Casilla = vértice · Movimiento = arista", 500, 625, 29, "#f5f8ff");
+      textoDemo("grado(v) = 4", 500, 685, 32, "#ffd166");
+    }
+
+    function dibujarDemoBinario() {
+      const filas = [
+        ["Arriba", "0", "00"],
+        ["Abajo", "1", "01"],
+        ["Izquierda", "2", "10"],
+        ["Derecha", "3", "11"]
+      ];
+      textoDemo("Dirección", 280, 170, 25, "#64f6ff");
+      textoDemo("Decimal", 500, 170, 25, "#64f6ff");
+      textoDemo("Binario", 720, 170, 25, "#64f6ff");
+      filas.forEach((fila, i) => {
+        const y = 245 + i * 85;
+        cajaDemo(150, y - 34, 700, 62, "rgba(100,246,255,.35)", "rgba(255,255,255,.035)");
+        textoDemo(fila[0], 280, y, 23, "#f5f8ff");
+        textoDemo(fila[1], 500, y, 25, "#ffd166");
+        textoDemo(fila[2], 720, y, 27, "#6eff8f");
+      });
+      textoDemo("2² = 4 estados", 500, 650, 38, "#c38cff");
+    }
+
+    function dibujarDemoInduccion() {
+      cajaDemo(90, 170, 250, 150, "#64f6ff", "rgba(100,246,255,.07)");
+      cajaDemo(375, 170, 250, 150, "#ffd166", "rgba(255,209,102,.07)");
+      cajaDemo(660, 170, 250, 150, "#6eff8f", "rgba(110,255,143,.07)");
+      textoDemo("1. Caso base", 215, 210, 24, "#64f6ff");
+      textoDemo("n = 1 ✓", 215, 275, 28, "#f5f8ff");
+      textoDemo("2. Hipótesis", 500, 210, 24, "#ffd166");
+      textoDemo("S(k)=k(k+1)/2", 500, 275, 22, "#f5f8ff");
+      textoDemo("3. Paso k+1", 785, 210, 24, "#6eff8f");
+      textoDemo("S(k+1) ✓", 785, 275, 28, "#f5f8ff");
+      textoDemo("1 + 2 + ... + n = n(n+1)/2", 500, 430, 40, "#64f6ff");
+      textoDemo(`Ejemplo n=5: ${sumaPrimerosNaturales(5)}`, 500, 525, 30, "#ffd166");
+      textoDemo("Puntaje triangular hipotético: 10 × n(n+1)/2", 500, 620, 27, "#aab6d4");
+    }
+
+    /* ==================================================================
+       18. PANEL PEDAGÓGICO Y OPCIÓN “VER CÓDIGO”
+       Actualiza pregunta, respuesta, pista de búsqueda y fragmento mostrado.
+       ================================================================== */
+
+    function actualizarInterfaz() {
+      puntajeElemento.textContent = puntaje;
+      nivelElemento.textContent = nivel;
+      longitudElemento.textContent = serpiente.length;
+      posicionElemento.textContent = serpiente.length > 0
+        ? `(${serpiente[0].x}, ${serpiente[0].y})`
+        : "—";
+      const intervalo = obtenerVelocidadActual();
+      const multiplicador = obtenerMultiplicadorVelocidad();
+      velocidadElemento.textContent = `${multiplicador.toFixed(2)}×`;
+      intervaloVelocidadElemento.textContent = `${intervalo} ms por movimiento`;
+      intervaloVelocidadElemento.title = "Menos milisegundos significa menos espera y mayor velocidad.";
+      const tipoActual = TIPOS_FRUTA[fruta.tipo] || TIPOS_FRUTA.normal;
+      frutaActualElemento.textContent = `Fruta actual: ${tipoActual.nombre} · ${tipoActual.puntos} pts · +${tipoActual.crecimiento}`;
+    }
+
+    function activarConcepto(titulo, explicacionPersonalizada = null, forzar = false) {
+      if (!DATOS_CONCEPTOS[titulo]) return;
+
+      // Después de perder, solo una acción voluntaria del usuario puede
+      // reemplazar la explicación de Game Over.
+      if (bloqueoConceptoGameOver && !forzar && titulo !== "Lógica proposicional") {
+        return;
+      }
+
+      conceptoSeleccionado = titulo;
+      const datos = DATOS_CONCEPTOS[titulo];
+
+      conceptoTitulo.textContent = titulo;
+      conceptoTexto.textContent = explicacionPersonalizada || datos.explicacion;
+      bloquePregunta.innerHTML = `<b>Pregunta:</b> ${datos.pregunta}`;
+      bloqueRespuesta.innerHTML = `<b>Respuesta:</b> ${datos.respuesta}`;
+      buscarCodigo.innerHTML = `<b>Ctrl + F:</b> ${datos.buscar}`;
+      codigoConcepto.textContent = datos.codigo;
+      codigoEtiqueta.textContent = titulo;
+
+      listaConceptos.querySelectorAll(".chip").forEach((chip) => {
+        chip.classList.toggle("activo", chip.dataset.concepto === titulo);
+      });
+    }
+
+    function mostrarDemostracionConcepto(titulo) {
+      if (!DATOS_CONCEPTOS[titulo]) return;
+
+      if (enJuego && !enPausa && !terminado && !conceptoDemostracion) {
+        juegoPausadoPorDemostracion = true;
+        detenerTemporizador();
+      }
+
+      // Si había una pantalla de inicio, pausa, victoria o derrota, se oculta
+      // temporalmente para que el ejemplo matemático pueda verse en el canvas.
+      if (!overlay.classList.contains("oculto") && !overlayGuardado) {
+        overlayGuardado = {
+          titulo: overlayTitulo.textContent,
+          texto: overlayTexto.textContent,
+          boton: botonOverlay.textContent
+        };
+        ocultarOverlay();
+      }
+
+      conceptoDemostracion = titulo;
+      cerrarDemostracionBoton.classList.remove("oculto-total");
+      cerrarCodigoConcepto();
+      activarConcepto(titulo, null, true);
+      dibujarTodo();
+    }
+
+    function cerrarDemostracion(reanudarPartida = true) {
+      if (!conceptoDemostracion) return;
+
+      conceptoDemostracion = null;
+      cerrarDemostracionBoton.classList.add("oculto-total");
+      cerrarCodigoConcepto();
+      dibujarTodo();
+
+      if (reanudarPartida && juegoPausadoPorDemostracion && enJuego && !enPausa && !terminado) {
+        reiniciarTemporizador();
+      }
+
+      // Restaura exactamente la pantalla que estaba visible antes del ejemplo.
+      if (overlayGuardado) {
+        mostrarOverlay(overlayGuardado.titulo, overlayGuardado.texto, overlayGuardado.boton);
+        overlayGuardado = null;
+      }
+
+      juegoPausadoPorDemostracion = false;
+    }
+
+    function abrirCodigoConcepto() {
+      codigoPanel.classList.remove("oculto-total");
+      codigoBackdrop.classList.remove("oculto-total");
+      document.body.classList.add("modal-abierto");
+      verCodigoBoton.textContent = "Código abierto";
+      cerrarCodigoBoton.focus();
+    }
+
+    function cerrarCodigoConcepto() {
+      codigoPanel.classList.add("oculto-total");
+      codigoBackdrop.classList.add("oculto-total");
+      document.body.classList.remove("modal-abierto");
+      verCodigoBoton.textContent = "Ver código";
+    }
+
+    function alternarCodigoConcepto() {
+      codigoPanel.classList.contains("oculto-total") ? abrirCodigoConcepto() : cerrarCodigoConcepto();
+    }
+
+    function mostrarOverlay(titulo, texto, textoBoton) {
+      overlayTitulo.textContent = titulo;
+      overlayTexto.textContent = texto;
+      botonOverlay.textContent = textoBoton;
+      overlay.classList.remove("oculto");
+    }
+
+    function ocultarOverlay() {
+      overlay.classList.add("oculto");
+    }
+
+    /* ==================================================================
+       19. SONIDOS CON WEB AUDIO API
+       Se crean sonidos simples con osciladores; no se cargan archivos MP3.
+       ================================================================== */
+
+    let contextoAudio = null;
+
+    function obtenerContextoAudio() {
+      if (!contextoAudio) {
+        const AudioContexto = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContexto) return null;
+        contextoAudio = new AudioContexto();
+      }
+
+      if (contextoAudio.state === "suspended") {
+        contextoAudio.resume();
+      }
+
+      return contextoAudio;
+    }
+
+    function tono(frecuencia, duracion, tipo = "sine", volumen = 0.08, retraso = 0) {
+      if (!sonidoActivo) return;
+
+      const audio = obtenerContextoAudio();
+      if (!audio) return;
+
+      const oscilador = audio.createOscillator();
+      const ganancia = audio.createGain();
+      const inicio = audio.currentTime + retraso;
+      const fin = inicio + duracion;
+
+      oscilador.type = tipo;
+      oscilador.frequency.setValueAtTime(frecuencia, inicio);
+      ganancia.gain.setValueAtTime(volumen, inicio);
+      ganancia.gain.exponentialRampToValueAtTime(0.001, fin);
+
+      oscilador.connect(ganancia);
+      ganancia.connect(audio.destination);
+      oscilador.start(inicio);
+      oscilador.stop(fin);
+    }
+
+    function reproducirSonido(tipo) {
+      if (!sonidoActivo) return;
+
+      const secuencias = {
+        inicio: () => {
+          tono(330, 0.09, "square", 0.05, 0);
+          tono(494, 0.12, "square", 0.05, 0.09);
+        },
+        fruta: () => {
+          tono(620, 0.07, "sine", 0.07, 0);
+          tono(880, 0.11, "sine", 0.06, 0.06);
+        },
+        dorada: () => {
+          tono(720, 0.08, "triangle", 0.07, 0);
+          tono(980, 0.1, "triangle", 0.06, 0.08);
+          tono(1240, 0.14, "triangle", 0.05, 0.16);
+        },
+        borde: () => tono(220, 0.06, "triangle", 0.035, 0),
+        nivel: () => {
+          tono(392, 0.1, "square", 0.05, 0);
+          tono(523, 0.1, "square", 0.05, 0.1);
+          tono(659, 0.16, "square", 0.05, 0.2);
+        },
+        derrota: () => {
+          tono(280, 0.16, "sawtooth", 0.06, 0);
+          tono(190, 0.2, "sawtooth", 0.06, 0.14);
+          tono(110, 0.3, "sawtooth", 0.05, 0.3);
+        },
+        victoria: () => {
+          tono(523, 0.12, "square", 0.055, 0);
+          tono(659, 0.12, "square", 0.055, 0.12);
+          tono(784, 0.12, "square", 0.055, 0.24);
+          tono(1047, 0.3, "square", 0.05, 0.36);
+        }
+      };
+
+      if (secuencias[tipo]) secuencias[tipo]();
+    }
+
+    /* ==================================================================
+       20. EVENTOS DE BOTONES
+       Cada evento conecta una acción visible con una función del programa.
+       ================================================================== */
+
+    botonIniciar.addEventListener("click", iniciarJuego);
+    botonPausar.addEventListener("click", alternarPausa);
+    botonReiniciar.addEventListener("click", reiniciarJuego);
+    botonMejoraVelocidad.addEventListener("click", alternarMejoraVelocidad);
+    botonMejoraFrutas.addEventListener("click", alternarMejoraFrutas);
+    verCodigoBoton.addEventListener("click", alternarCodigoConcepto);
+    cerrarCodigoBoton.addEventListener("click", cerrarCodigoConcepto);
+    codigoBackdrop.addEventListener("click", cerrarCodigoConcepto);
+    cerrarDemostracionBoton.addEventListener("click", () => cerrarDemostracion(true));
+
+    listaConceptos.querySelectorAll(".chip").forEach((chip) => {
+      const abrirEjemplo = () => mostrarDemostracionConcepto(chip.dataset.concepto);
+      chip.addEventListener("click", abrirEjemplo);
+      chip.addEventListener("keydown", (evento) => {
+        if (evento.key === "Enter" || evento.key === " ") {
+          evento.preventDefault();
+          abrirEjemplo();
+        }
+      });
+    });
+
+    botonOverlay.addEventListener("click", () => {
+      if (enPausa) {
+        alternarPausa();
+      } else {
+        iniciarJuego();
+      }
+    });
+
+    botonSonido.addEventListener("click", () => {
+      sonidoActivo = !sonidoActivo;
+      botonSonido.textContent = sonidoActivo
+        ? "Sonido: activado"
+        : "Sonido: desactivado";
+      if (sonidoActivo) reproducirSonido("inicio");
+    });
+
+    // Estado inicial visible apenas se abre el archivo HTML.
+    actualizarEstadoMejoras();
+    prepararPartida();
+  </script>
+</body>
+</html>
